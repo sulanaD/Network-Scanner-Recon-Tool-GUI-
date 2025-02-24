@@ -9,16 +9,27 @@ SHODAN_API_KEY = "YOUR_SHODAN_API_KEY"
 
 # List of common Nmap scripts
 NMAP_SCRIPTS = [
-    "vuln", "http-enum", "ftp-anon", "ssh-auth-methods", "ssl-cert", "smb-os-discovery"
+    "None", "vuln", "http-enum", "ftp-anon", "ssh-auth-methods", "ssl-cert", "smb-os-discovery"
 ]
 
-def run_nmap_scan(target, script=None):
-    """ Run Nmap scan with optional script """
+# Decoy Options
+DECOY_OPTIONS = ["No Decoy", "RND 5", "RND 10"]
+
+def run_nmap_scan(target, decoy_mode, script=None):
+    """ Run Nmap scan with optional decoy and script """
     scanner = nmap.PortScanner()
     
-    script_option = f"--script={script}" if script else ""
-    scan_command = f"-sS -sV -T4 --open {script_option}"
-
+    # Set scan arguments based on user selection
+    script_option = f"--script={script}" if script and script != "None" else ""
+    
+    if decoy_mode == "No Decoy":
+        decoy_option = ""
+    elif decoy_mode == "RND 5":
+        decoy_option = "-D RND:5"
+    elif decoy_mode == "RND 10":
+        decoy_option = "-D RND:10"
+    
+    scan_command = f"-sS -sV -T4 --open {script_option} {decoy_option}"
     scanner.scan(target, arguments=scan_command)
 
     results = []
@@ -52,15 +63,16 @@ def start_scan():
     """ Start Nmap scan from GUI """
     target = target_entry.get()
     selected_script = script_dropdown.get()
+    selected_decoy = decoy_dropdown.get()
     
     if not target:
         messagebox.showerror("Error", "Please enter a target IP or range!")
         return
     
     output_text.delete(1.0, tk.END)
-    output_text.insert(tk.END, f"Scanning {target} with script: {selected_script}...\n")
+    output_text.insert(tk.END, f"Scanning {target} with script: {selected_script} | Decoy Mode: {selected_decoy}...\n")
 
-    scan_results = run_nmap_scan(target, selected_script)
+    scan_results = run_nmap_scan(target, selected_decoy, selected_script)
 
     for entry in scan_results:
         entry["shodan_info"] = get_shodan_info(entry["ip"])
@@ -77,7 +89,7 @@ def start_scan():
 # GUI Setup
 root = tk.Tk()
 root.title("Network Scanner & Recon Tool")
-root.geometry("600x450")
+root.geometry("600x500")
 
 tk.Label(root, text="Enter Target IP/Range:").pack(pady=5)
 target_entry = tk.Entry(root, width=50)
@@ -86,7 +98,12 @@ target_entry.pack(pady=5)
 tk.Label(root, text="Select Nmap Script:").pack(pady=5)
 script_dropdown = ttk.Combobox(root, values=NMAP_SCRIPTS, state="readonly")
 script_dropdown.pack(pady=5)
-script_dropdown.set("vuln")  # Default script
+script_dropdown.set("None")  # Default script
+
+tk.Label(root, text="Select Decoy Mode:").pack(pady=5)
+decoy_dropdown = ttk.Combobox(root, values=DECOY_OPTIONS, state="readonly")
+decoy_dropdown.pack(pady=5)
+decoy_dropdown.set("No Decoy")  # Default mode
 
 scan_button = tk.Button(root, text="Start Scan", command=start_scan)
 scan_button.pack(pady=10)
@@ -95,4 +112,3 @@ output_text = scrolledtext.ScrolledText(root, width=70, height=15)
 output_text.pack(pady=5)
 
 root.mainloop()
-
